@@ -5,8 +5,6 @@ import sqlite3
 import send_email
 
 URL = "https://programmer100.pythonanywhere.com/tours/"
-connection = sqlite3.connect("data.db")
-
 
 class Event:
     def scrape(self, url):
@@ -20,6 +18,9 @@ class Event:
         return value
 
 class Database:
+    def __init__(self, db_path):
+        self.connection = sqlite3.connect(db_path)
+
     def store_data(self, data):
         with open("data.txt", "a") as file:
             file.write(f"{data}\n")
@@ -28,7 +29,7 @@ class Database:
         row = extracted.split(",")
         row = [item.strip() for item in row]
         band, city, date = row
-        cursor = connection.cursor()
+        cursor = self.connection.cursor()
         cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?", (band, city, date))
         rows = cursor.fetchall()
         print(rows)
@@ -37,9 +38,9 @@ class Database:
     def store_data_in_db(self, extracted):
         row = extracted.split(",")
         row = [item.strip() for item in row]
-        cursor = connection.cursor()
+        cursor = self.connection.cursor()
         cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
-        connection.commit()
+        self.connection.commit()
         print("Successfully stored data")
 
 if __name__ == '__main__':
@@ -52,7 +53,7 @@ if __name__ == '__main__':
         print(extracted)
 
         if extracted.lower() != "no upcoming tours":
-            database = Database()
+            database = Database("data.db")
             # Store data using local database
             content = database.read_db(extracted)
             if not content:
