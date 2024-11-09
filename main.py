@@ -2,55 +2,62 @@ import requests
 import selectorlib
 import time
 import sqlite3
-from send_email import email
+import send_email
 
 URL = "https://programmer100.pythonanywhere.com/tours/"
 connection = sqlite3.connect("data.db")
 
-def scrape(url):
-    response = requests.get(url)
-    source = response.text
-    return source
 
-def extract(source):
-    extractor = selectorlib.Extractor.from_yaml_file("extract.yaml")
-    value = extractor.extract(source)["tours"]
-    return value
+class Event:
+    def scrape(self, url):
+        response = requests.get(url)
+        source = response.text
+        return source
 
-def store_data(data):
-    with open("data.txt", "a") as file:
-        file.write(f"{data}\n")
+    def extract(self, source):
+        extractor = selectorlib.Extractor.from_yaml_file("extract.yaml")
+        value = extractor.extract(source)["tours"]
+        return value
 
-def read_db(extracted):
-    row = extracted.split(",")
-    row = [item.strip() for item in row]
-    band, city, date = row
-    cursor = connection.cursor()
-    cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?", (band, city, date))
-    rows = cursor.fetchall()
-    print(rows)
-    return rows
+class Database:
+    def store_data(self, data):
+        with open("data.txt", "a") as file:
+            file.write(f"{data}\n")
 
-def store_data_in_db(extracted):
-    row = extracted.split(",")
-    row = [item.strip() for item in row]
-    cursor = connection.cursor()
-    cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
-    connection.commit()
-    print("Successfully stored data")
+    def read_db(self, extracted):
+        row = extracted.split(",")
+        row = [item.strip() for item in row]
+        band, city, date = row
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM events WHERE band=? AND city=? AND date=?", (band, city, date))
+        rows = cursor.fetchall()
+        print(rows)
+        return rows
+
+    def store_data_in_db(self, extracted):
+        row = extracted.split(",")
+        row = [item.strip() for item in row]
+        cursor = connection.cursor()
+        cursor.execute("INSERT INTO events VALUES(?,?,?)", row)
+        connection.commit()
+        print("Successfully stored data")
 
 if __name__ == '__main__':
+    email = send_email.Email()
+
     while True:
-        scraped = scrape(URL)
-        extracted = extract(scraped)
+        event = Event()
+        scraped = event.scrape(URL)
+        extracted = event.extract(scraped)
         print(extracted)
 
         if extracted.lower() != "no upcoming tours":
+            database = Database()
             # Store data using local database
-            content = read_db(extracted)
+            content = database.read_db(extracted)
             if not content:
-                store_data_in_db(extracted)
-                email(extracted, "utf-8")
+                database.store_data_in_db(extracted)
+                email.send(extracted)
 
             # Store data using local file
             # with open("data.txt") as data:
